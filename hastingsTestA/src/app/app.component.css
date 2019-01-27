@@ -1,1 +1,64 @@
+.hastingsLogo{
+    height:auto;
+    width: 100%;
+}
+.navbar{
+    flex-wrap: nowrap;
+}
 
+.navbar-nav{
+    flex-wrap:nowrap;
+    flex-direction: row;
+}
+
+.headerSymbolHelp{
+    height:auto;
+    width:45%;
+    padding-right: 5px;
+}
+
+.nav-link{
+    padding:0px 0px;
+    margin: 2px;
+    cursor: pointer;    
+    width: 100%;
+    flex-wrap: nowrap;
+}
+
+.headerLinkMy{
+    max-width: 150px;
+    font-weight: bold;
+}
+
+.headerLinkMy img {
+    height:auto;
+    width:25%;
+    padding-right: 5px;
+}
+
+
+.headerLinkClaims{
+    max-width: 100px;
+    font-weight: bold;
+}
+
+.headerLinkClaims img {
+    height:auto;
+    width:35%;
+    padding-right: 5px;
+}
+
+.headerLinkHelp{
+    max-width: 140px;
+    font-weight: bold;
+}
+
+.headerLinkHelp img {
+    height:auto;
+    width:50%;
+    padding-right: 5px;
+}
+
+.test{
+    max-width: 300px;
+}
