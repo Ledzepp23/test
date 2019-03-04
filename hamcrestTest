@@ -1,0 +1,13 @@
+import org.testng.annotations.Test;
+
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
+
+public class HamcrestPractice {
+
+    @Test
+    public void practiceTest(){
+        String greeting = "hello";
+        assertThat(greeting,is("hello"));
+    }
+}
