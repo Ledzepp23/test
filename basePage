@@ -1,0 +1,584 @@
+package com.Hastings.Automation.Pages;
+
+import java.io.Serializable;
+import java.time.Duration;
+import java.util.List;
+import java.util.Properties;
+import java.util.function.Function;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.openqa.selenium.By;
+import org.openqa.selenium.InvalidElementStateException;
+import org.openqa.selenium.JavascriptExecutor;
+import org.openqa.selenium.Keys;
+import org.openqa.selenium.NoSuchElementException;
+import org.openqa.selenium.SearchContext;
+import org.openqa.selenium.StaleElementReferenceException;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.WebElement;
+import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.support.ui.*;
+import org.testng.Assert;
+
+import com.Hastings.Automation.Config.BaseConfigProperty;
+import com.Hastings.Automation.Utils.EnvProperties.EnvironmentConfig;
+import com.Hastings.Automation.Utils.EnvProperties.EnvironmentSetup;
+import com.Hastings.Automation.Utils.ExtentReports.ExtentTestManager;
+import com.Hastings.Automation.Utils.ExtentReports.StepManager.ReportInfoSteps;
+import com.aventstack.extentreports.Status;
+
+import static com.Hastings.Automation.Utils.MiscellaneousInformation.getPlatformName;
+
+public abstract class BasePage {
+
+    protected BaseConfigProperty config;
+
+    public abstract BasePage isAt() throws Exception;
+
+    // added throws exception to basePage - JL
+    protected WebDriver driver;
+    protected WebDriverWait wait;
+    protected JavascriptExecutor jsExecutor;
+    protected static final Logger log = LogManager.getLogger("BaseTest");
+    //  protected static final Logger log = LogManager.getLogger("BaseTest");
+    protected static EnvironmentConfig EnvironmentProperty = EnvironmentSetup.getEnvironment();
+
+    public int DEFAULT_ELEM_TIME_WAIT_SEC = 120;
+    private static Properties prop = new Properties();
+
+    public BasePage(WebDriver _driver) {
+        driver = _driver;
+        jsExecutor = ((JavascriptExecutor) driver);
+        config = new BaseConfigProperty();
+        prop = config.getPropConfig();
+    }
+
+    public static Properties getProp() {
+        return prop;
+    }
+
+    static class ByProperty extends By implements Serializable {
+
+        private static final long serialVersionUID = 786985836949206917L;
+        private final String propString;
+        private final By selector;
+
+        public ByProperty(String propString) {
+            this.propString = propString;
+            this.selector = getBaseSelector(propString);
+        }
+
+        @Override
+        public List<WebElement> findElements(SearchContext context) {
+            return selector.findElements(context);
+        }
+
+        @Override
+        public WebElement findElement(SearchContext context) {
+            return selector.findElement(context);
+        }
+
+        public static By getBaseSelector(String propString) {
+
+            Properties propObject = getProp();
+            String prop = "";
+            try {
+                prop = propObject.get(propString).toString();
+            } catch (Exception e) {
+                log.error(e.getMessage());
+            }
+            String[] propArray = prop.split("\\|");
+            String identifier = null;
+
+            for (int i = 0; i < propArray.length; i++) {
+                identifier = propArray[i].trim();
+                if (identifier.isEmpty()) {
+                    continue;
+                }
+                switch (i) {
+                    case 0:
+                        return By.id(identifier);
+                    case 1:
+                        return By.name(identifier);
+                    case 2:
+                        return By.xpath(identifier);
+                    case 3:
+                        return By.cssSelector(identifier);
+                    case 4:
+                        return By.className(identifier);
+                }
+            }
+            throw new IllegalArgumentException("No prop found with name:" + propString);
+        }
+
+        @Override
+        public String toString() {
+            return "ByProperty: " + propString + "=>" + selector;
+        }
+    }
+
+    public static By ByProp(String propString) {
+        return new ByProperty(propString);
+    }
+
+	/*------------------------------------------------------------------------
+	-------------------------- CLICK FUNCTIONS -------------------------------
+	 ------------------------------------------------------------------------*/
+
+    public void waitAndClickElement(String propString) {
+        if (EnvironmentProperty.ReportLogLevel().toUpperCase().equals("INFO")) {
+            ReportInfoSteps.LogChildStepInfo("Clicked on:<b> <font color=\"E87C25\"//></b> " + propString);
+        } else {
+            ReportInfoSteps.LogChildStepInfo("Clicked on:<b> <font color=\"E87C25\"//></b> " + propString);
+        }
+        waitAndReturnElement(propString, DEFAULT_ELEM_TIME_WAIT_SEC).click();
+    }
+
+    public void waitAndClickElement(String propString, WebDriver driver) {
+        if (EnvironmentProperty.ReportLogLevel().toUpperCase().equals("INFO")) {
+            ReportInfoSteps.LogChildStepInfo("Clicked on:<b> <font color=\"E87C25\"//></b> " + propString, driver);
+        } else {
+            ReportInfoSteps.LogChildStepInfo("Clicked on:<b> <font color=\"E87C25\"//></b> " + propString);
+        }
+        waitAndReturnElement(propString, DEFAULT_ELEM_TIME_WAIT_SEC).click();
+        log.info("Host: " + getPlatformName() +" Clicked on - Element: " + propString );
+    }
+
+    protected WebElement waitAndReturnElement(String propString) {
+        return waitAndReturnElement(propString, DEFAULT_ELEM_TIME_WAIT_SEC);
+    }
+
+    private WebElement waitAndReturnElement(String propString, int waitTimeSeconds) {
+        By selector = ByProp(propString);
+        return waitAndReturnElement(selector, waitTimeSeconds);
+    }
+
+    public void fluentWaitAndClick(String propString){
+        By selector = ByProp(propString);
+        Duration waiting = Duration.ofSeconds(15);
+        Duration poll = Duration.ofSeconds(5);
+        Wait<WebDriver> wait = new FluentWait<>(driver)
+                .withTimeout(waiting)
+                .pollingEvery(poll)
+                .ignoring(NoSuchElementException.class);
+        WebElement ele = wait.until(new Function<WebDriver, WebElement>() {
+            public WebElement apply(WebDriver driver) {
+                return driver.findElement(selector);
+            }
+        });
+        ele.click();
+    }
+
+    public WebElement fluentWaitAndReturn(String propString){
+        By selector = ByProp(propString);
+        Duration waiting = Duration.ofSeconds(15);
+        Duration poll = Duration.ofSeconds(5);
+        Wait<WebDriver> wait = new FluentWait<>(driver)
+                .withTimeout(waiting)
+                .pollingEvery(poll)
+                .ignoring(NoSuchElementException.class);
+        WebElement ele = wait.until(new Function<WebDriver, WebElement>() {
+            public WebElement apply(WebDriver driver) {
+                return driver.findElement(selector);
+            }
+        });
+        return ele;
+    }
+
+    private WebElement waitAndReturnElement(By selector) {
+        return waitAndReturnElement(selector, DEFAULT_ELEM_TIME_WAIT_SEC);
+    }
+
+    private WebElement waitAndReturnElement(By selector, int waitTimeSeconds) {
+
+        WebDriverWait wait = createWebDriverWait(waitTimeSeconds);
+        WebElement webElement = null;
+        wait.until(AjaxPendingCondition);
+
+        try {
+            webElement = wait.until(ExpectedConditions.elementToBeClickable(selector));
+            while (!webElement.isEnabled()) {
+                log.debug(selector.toString() + " not enabled");
+                Thread.sleep(100);
+            }
+            log.debug("Web element Found by SELECTOR: " + selector);
+        } catch (Exception e) {
+            String element = selector.toString();
+            String[] sel = element.split("=>");
+            String failedElement = sel[0];
+            log.error("Web Element not found by SELECTOR: " + selector + " error: " + e.getMessage());
+            Assert.fail("Web Element was not found: " + failedElement);
+        }
+
+        try {
+            colourWebElement(webElement, "red");
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+        webElement = driver.findElement(selector);
+        return webElement;
+    }
+
+	/*------------------------------------------------------------------------
+	-------------------------- WebDriver Wait FUNCTIONS ----------------------
+	 ------------------------------------------------------------------------*/
+
+    private WebDriverWait createWebDriverWait() {
+        return createWebDriverWait(DEFAULT_ELEM_TIME_WAIT_SEC);
+    }
+
+    public WebDriverWait createWebDriverWait(int waitTimeSeconds) {
+        WebDriverWait wait = new WebDriverWait(driver, waitTimeSeconds, 200);
+        return wait;
+    }
+
+    private void colourWebElement(WebElement element, String colour) {
+        try {
+            String script = "arguments[0].style.border='4px solid " + colour + "'";
+            ((JavascriptExecutor) driver).executeScript(script, element);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+    }
+
+/*---------------------------------------------------------------
+-------------------------- AJAX FUNCTIONS ----------------------
+------------------------------------------------------------------*/
+
+    public ExpectedCondition<Boolean> AjaxPendingCondition = new ExpectedCondition<Boolean>() {
+        @Override
+        public Boolean apply(WebDriver driver) {
+            try {
+                JavascriptExecutor js = (JavascriptExecutor) driver;
+                Object pending = js.executeScript(
+                        "return (window.Ext && window.Ext.Ajax && window.Ext.Ajax.isLoading()) || (window.AJAX_REQ_ID!=undefined && window.AJAX_REQ_ID !=0);");
+                // Object pending = js.executeScript("return (Ext.Ajax &&
+                // Ext.Ajax.isLoading())
+                // || (window.AJAX_QUEUE!==undefined && window.AJAX_QUEUE>0);");
+                boolean isPending = (boolean) pending;
+
+                if (isPending) {
+                   log.debug("pending ajax request:" + pending);
+                    Thread.sleep(100);
+                } else {
+                    log.debug("not pending");
+                    Thread.sleep(50);
+                }
+                return Boolean.valueOf(!isPending);
+
+            } catch (Exception e) {
+                log.error("Ajax caught error {}", e.getMessage());
+                return Boolean.TRUE;
+            }
+        }
+    };
+
+    public void waitForPendingAjax() {
+        WebDriverWait wait = createWebDriverWait();
+        wait.until(AjaxPendingCondition);
+    }
+
+    public ExpectedCondition<Boolean> PageLoadingCondition = new ExpectedCondition<Boolean>() {
+
+        @Override
+        public Boolean apply(WebDriver driver) {
+            try {
+                JavascriptExecutor js = (JavascriptExecutor) driver;
+                Object readyState = js.executeScript("return document.readyState=='complete';");
+
+                boolean isReady = (boolean) readyState;
+
+                if (!isReady) {
+                    log.debug("waiting for page load:" + readyState);
+                }
+                return Boolean.valueOf(isReady);
+            } catch (Exception e) {
+                return Boolean.TRUE;
+            }
+        }
+    };
+
+    /*---------------------------------------------------------------
+-------------------------- Element Functions ----------------------
+------------------------------------------------------------------*/
+    public String getElementText(String element) {
+        return waitAndReturnElement(element).getText();
+    }
+
+    public boolean isElementEnabled(String element) {
+        return waitAndReturnElement(element).isEnabled();
+    }
+
+    public boolean isElementDisplayed(String element) {
+        return waitAndReturnElement(element).isDisplayed();
+    }
+
+    public boolean isElementSelected(String element) {
+        return waitAndReturnElement(element).isSelected();
+    }
+
+	/*--------------------------------------------------------------
+-------------------------- DROPDOWN Functions ----------------------
+------------------------------------------------------------------*/
+
+    public void SelectDropDownByValue(String element, String Value) {
+        WebElement ele = waitAndReturnElement(element);
+        Select dropDown = new Select(ele);
+
+        try {
+            dropDown.selectByValue(Value);
+            colourWebElement(ele, "Orchid");
+        } catch (NoSuchElementException e) {
+            ExtentTestManager.getTest().log(Status.FAIL, element + "did not contain as an option:" + Value);
+            Assert.fail("item to select not found by text:" + Value, e);
+        }
+    }
+
+    public void SelectDropDownByIndex(String element, int index) {
+        WebElement ele = waitAndReturnElement(element);
+        Select dropDown = new Select(ele);
+
+        // checkForPopulatedDropdown(ele, dropDown);
+        try {
+            dropDown.selectByIndex(index);
+            colourWebElement(ele, "Orchid");
+        } catch (NoSuchElementException e) {
+            ExtentTestManager.getTest().log(Status.FAIL, element + "did not contain as an option:" + index);
+            Assert.fail("item to select not found by index:" + index, e);
+        }
+        // checkForObstructions();
+    }
+
+    public void HtmlSelectDropDownByActions(String objIdentifier, String value) throws InterruptedException {
+        String value1;
+        try {
+            WebElement element = waitAndReturnElement(objIdentifier);
+            element.clear();
+            element.click();
+            if (value.length() > 2)
+                value1 = value;
+            else
+                value1 = value;
+            element.sendKeys(value1);
+            Actions Act = new Actions(driver);
+            String xpathId = "//div[contains(text(), '" + value + "')]";
+            WebElement ele1 = driver.findElement(By.xpath(xpathId));
+            Act.moveToElement(ele1).build().perform();
+            ele1.click();
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    	/*--------------------------------------------------------------
+-------------------------- DROPDOWN Functions ----------------------
+------------------------------------------------------------------*/
+    private void addInfoToReport(String Element, String input) {
+        try {
+            if (EnvironmentProperty.ReportLogLevel().toUpperCase().equals("INFO")) {
+
+                ReportInfoSteps.LogChildStepInfo("Located Element:<b> <font color=\"D72065\"//></b> " + Element
+                        + "</font> and entered value:<b> <font color=\"20D7AC\">" + input, driver);
+            } else {
+                ReportInfoSteps.LogChildStepInfo("Located Element:<b> <font color=\"D72065\"//></b> " + Element
+                        + "</font> and entered value:<b> <font color=\"20D7AC\">" + input);
+            }
+        } catch (Exception e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    public void enterTextBox(String propName, String listValue) {
+
+        try {
+            enterTextBox(propName, listValue, Keys.TAB);
+            addInfoToReport(propName, listValue);
+        } catch (Exception e) {
+            log.error("Issue attempting to enter text into textbox "+e.getMessage());
+        }
+
+    }
+
+    private void enterTextBox(String propName, String listValue, Keys keyAtEnd) {
+        try {
+            waitAndReturnElement(propName).clear();
+            waitAndReturnElement(propName).sendKeys(listValue.trim());
+           // StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+            //String CallerName
+            log.info("Host: " + getPlatformName() +" Enter textbox - Field:" + propName + " Value: " + listValue);
+            waitAndReturnElement(propName).sendKeys(keyAtEnd);
+            WebElement element = waitAndReturnElement(propName);
+            colourWebElement(element, "purple");
+        } catch (InvalidElementStateException invalidElementStateException) {
+            log.error("Issue attempting to input text into textbox"+invalidElementStateException.toString());
+        }
+
+    }
+
+    public void frameworkClick(WebElement found, String propString) {
+        try {
+            found.click();
+            colourWebElement(found, "green");
+        } catch (Exception e) {// | InterruptedException e) {
+            log.info("Could not click " + propString + " using selenium click, trying a forced JS click");
+            // logReport(LogStatus.WARNING, e.toString());
+            // jsClick(found);
+        }
+    }
+    public void frameworkClick(String propString) {
+        WebElement found = waitAndReturnElement(propString);
+        frameworkClick(found, propString);
+    }
+
+    public void frameworkClick(WebElement found) {
+        frameworkClick(found, "");
+    }
+
+    public void acceptCookies(String brand) {
+
+        try {
+            Thread.sleep(500);
+            String className = "";
+            if (brand.equalsIgnoreCase("HD") || brand.equalsIgnoreCase("HE") || brand.equalsIgnoreCase("HP")
+                    || brand.equalsIgnoreCase("IP")) {
+                className = "cc-btn";
+                checkForObstructions();
+            } else if (brand.equalsIgnoreCase("PC")) {
+                className = "cb-enable";
+                checkForObstructions();
+            }
+            if (!className.equals("")) {
+                By selector = By.className(className);
+                List<WebElement> cookies = driver.findElements(selector);
+                // System.out.println(cookies.size());
+                if (cookies.size() > 0) {
+                    WebElement button = cookies.get(0);
+                    if (button.isEnabled() && button.isDisplayed()) {
+                        frameworkClick(button);
+                    }
+                    ((JavascriptExecutor) driver)
+                            .executeScript("document.getElementById(\"cookieconsent:desc\").style.dispay = 'none';");
+                    ((JavascriptExecutor) driver).executeScript(
+                            "$(\".cc-window.cc-banner.cc-type-info.cc-theme-classic.cc-bottom.cc-color-override-512502807.cc-invisible\").css(\"display\", \"none\");");
+                }
+            }
+        } catch (Exception e) {
+           log.error(e.toString());
+        }
+    }
+
+    public WebElement checkForObstructions(String className) {
+        checkForObstructions();
+        WebElement webElement = null;
+        By selector = By.className(className);
+        WebDriverWait wait = new WebDriverWait(driver, 10);
+        try {
+            webElement = wait.ignoring(StaleElementReferenceException.class)
+                    .until(ExpectedConditions.elementToBeClickable(selector));
+            while (!webElement.isEnabled()) {
+                log.debug(selector.toString() + " not enabled");
+                Thread.sleep(50);
+            }
+        } catch (Exception e) {
+        }
+        checkForObstructions();
+        webElement = driver.findElement(By.className(className));
+
+        return webElement;
+    }
+
+    public void checkForObstructions() {
+        try {
+            Thread.sleep(30);
+        } catch (Exception e) {
+        }
+        WebDriverWait loadingOverlay = new WebDriverWait(driver, 60);
+        loadingOverlay.until(AjaxPendingCondition);
+        // checkForSorrys();
+        loadingOverlay.until(ExpectedConditions.invisibilityOfElementLocated(By.className("loadingoverlay")));
+        loadingOverlay.until(AjaxPendingCondition);
+        // checkForGreenPopup();
+        // checkForRetrieveError();
+        // error404Check();
+    }
+
+	public boolean isObjectDisplayed(By selector) {
+		// waitForAjaxCall();
+		try {
+			WebElement element = driver.findElement(selector);
+			if (element != null && element.isDisplayed()) {
+				return true;
+			} else {
+				return false;
+			}
+		} catch (Exception e) {
+			return false;
+		}
+	}
+
+    public boolean isObjectFound(String objIdentifier) {
+        boolean flag = false;
+        WebElement element = null;
+        WebDriverWait wait = new WebDriverWait(driver, 5, 10);
+
+        By selector = ByProp(objIdentifier);
+
+        try {
+            element = wait.until(ExpectedConditions.visibilityOfElementLocated(selector));
+            flag = true;
+        } catch (Exception e) {
+            return false;
+        }
+        return flag;
+    }
+
+    public boolean isObjectFound(String objIdentifier, int seconds) {
+        boolean flag = false;
+        WebElement element = null;
+        WebDriverWait wait = new WebDriverWait(driver, seconds, seconds);
+
+        By selector = ByProp(objIdentifier);
+
+        try {
+            element = wait.until(ExpectedConditions.visibilityOfElementLocated(selector));
+            flag = true;
+        } catch (Exception e) {
+            return false;
+        }
+
+        return flag;
+    }
+
+    public String getFieldValue(String objIdentifier) {
+        try {
+            By selector = ByProp(objIdentifier);
+            WebElement element = driver.findElement(selector);
+            return element.getText();
+        } catch (Exception e) {
+            log.info("Unable to get Element Text");
+            return "";
+        }
+
+    }
+
+    public void WaitLoading(int waitLimit) throws InterruptedException {
+        boolean bCount;
+        Thread.sleep(1000);
+        for (int i = 0; i < 30; i++) {
+            try {
+                bCount = driver.findElement(By.className("loadingIcon")).isDisplayed();
+                if (bCount) {
+                    Thread.sleep(1000);
+                } else {
+                    break;
+                }
+            } catch (NoSuchElementException e) {
+                // TODO Auto-generated catch block
+                // e.printStackTrace();
+            }
+        }
+    }
+
+
+}
