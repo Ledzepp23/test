@@ -518,12 +518,13 @@ public abstract class BasePage {
                 ele.sendKeys(Keys.UP);
                 ele.sendKeys(Keys.DOWN);
                 ele.sendKeys(Keys.RETURN);
-                SelectDropDownByValueFluent(element, value);
+                SelectDropDownByVisibleText(element, value);
                 ele = fluentWaitAndReturn(element);
                 ele.sendKeys(Keys.TAB);
                 returnElementNoWait(elementDisplayedNext);
-                WebElement sectionEle = returnElementNoWait(element);
-                if (sectionEle.getText().equals(value) || sectionEle.getAttribute("value").equals(value)) {
+                Select sectionEle = new Select(returnElementNoWait(element));
+                log.info(sectionEle.getFirstSelectedOption().getText());
+                if (sectionEle.getFirstSelectedOption().getText().equals(value)) {
                     isTheNextSectionDisplayed = true;
                     SelectDropDownByVisibleText(element, value);
                 }
