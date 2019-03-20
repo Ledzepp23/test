@@ -1,32 +1,25 @@
 package com.Hastings.Automation.Pages;
 
-import java.io.Serializable;
-import java.time.Duration;
-import java.util.List;
-import java.util.Properties;
-import java.util.function.Function;
-
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.openqa.selenium.By;
-import org.openqa.selenium.InvalidElementStateException;
-import org.openqa.selenium.JavascriptExecutor;
-import org.openqa.selenium.Keys;
-import org.openqa.selenium.NoSuchElementException;
-import org.openqa.selenium.SearchContext;
-import org.openqa.selenium.StaleElementReferenceException;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.interactions.Actions;
-import org.openqa.selenium.support.ui.*;
-import org.testng.Assert;
-
 import com.Hastings.Automation.Config.BaseConfigProperty;
 import com.Hastings.Automation.Utils.EnvProperties.EnvironmentConfig;
 import com.Hastings.Automation.Utils.EnvProperties.EnvironmentSetup;
 import com.Hastings.Automation.Utils.ExtentReports.ExtentTestManager;
 import com.Hastings.Automation.Utils.ExtentReports.StepManager.ReportInfoSteps;
 import com.aventstack.extentreports.Status;
+import com.google.common.base.Function;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.openqa.selenium.*;
+import org.openqa.selenium.interactions.Actions;
+import org.openqa.selenium.support.ui.*;
+import org.testng.Assert;
+
+import java.io.Serializable;
+import java.text.DecimalFormat;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
 
 import static com.Hastings.Automation.Utils.MiscellaneousInformation.getPlatformName;
 
@@ -142,7 +135,7 @@ public abstract class BasePage {
             ReportInfoSteps.LogChildStepInfo("Clicked on:<b> <font color=\"E87C25\"//></b> " + propString);
         }
         waitAndReturnElement(propString, DEFAULT_ELEM_TIME_WAIT_SEC).click();
-        log.info("Host: " + getPlatformName() +" Clicked on - Element: " + propString );
+        log.info("Host: " + getPlatformName() + " Clicked on - Element: " + propString);
     }
 
     protected WebElement waitAndReturnElement(String propString) {
@@ -154,36 +147,102 @@ public abstract class BasePage {
         return waitAndReturnElement(selector, waitTimeSeconds);
     }
 
-    public void fluentWaitAndClick(String propString){
+    public void fluentWaitAndClick(String propString) {
+        waitForPendingAjax();
         By selector = ByProp(propString);
         Duration waiting = Duration.ofSeconds(15);
         Duration poll = Duration.ofSeconds(5);
         Wait<WebDriver> wait = new FluentWait<>(driver)
                 .withTimeout(waiting)
                 .pollingEvery(poll)
-                .ignoring(NoSuchElementException.class);
-        WebElement ele = wait.until(new Function<WebDriver, WebElement>() {
-            public WebElement apply(WebDriver driver) {
-                return driver.findElement(selector);
+                .ignoring(NoSuchElementException.class)
+                .ignoring(WebDriverException.class)
+                .ignoring(ElementNotInteractableException.class)
+                .ignoring(Exception.class);
+
+        for (int i = 0; i < 30; i++) {
+            try {
+                WebElement ele = wait.until(new Function<WebDriver, WebElement>() {
+                    public WebElement apply(WebDriver driver) {
+                        return driver.findElement(selector);
+                    }
+                });
+                ele.click();
+                break;
+            } catch (Exception e) {
+                log.info("error caught in fluent wait");
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e1) {
+                    e1.printStackTrace();
+                }
             }
-        });
-        ele.click();
+        }
     }
 
-    public WebElement fluentWaitAndReturn(String propString){
+    //switch to desired tab by inputting correspondonding int e.g. 0 = first tab
+    public void switchTabs(int tabNumber) {
+        ArrayList<String> tabs = new ArrayList<>(driver.getWindowHandles());
+        driver.switchTo().window(tabs.get(tabNumber));
+    }
+
+
+    public WebElement fluentWaitAndReturn(String propString) {
+        waitForPendingAjax();
         By selector = ByProp(propString);
         Duration waiting = Duration.ofSeconds(15);
         Duration poll = Duration.ofSeconds(5);
         Wait<WebDriver> wait = new FluentWait<>(driver)
                 .withTimeout(waiting)
                 .pollingEvery(poll)
-                .ignoring(NoSuchElementException.class);
-        WebElement ele = wait.until(new Function<WebDriver, WebElement>() {
-            public WebElement apply(WebDriver driver) {
-                return driver.findElement(selector);
+                .ignoring(ElementNotInteractableException.class)
+                .ignoring(NoSuchElementException.class)
+                .ignoring(WebDriverException.class)
+                .ignoring(Exception.class);
+        WebElement ele = null;
+        for (int i = 0; i < 30; i++) {
+
+            try {
+                ele = wait.until(new Function<WebDriver, WebElement>() {
+                    public WebElement apply(WebDriver driver) {
+                        return driver.findElement(selector);
+                    }
+                });
+                break;
+            } catch (Exception e) {
+                log.info("error caught in fluent wait");
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e1) {
+                    e1.printStackTrace();
+                }
             }
-        });
+        }
         return ele;
+    }
+
+    public void fluentWaitForAndInput(String propString, String displayedNext, String value) {
+        boolean isTheNextSectionDisplayed = false;
+        WebElement ele;
+        while (isTheNextSectionDisplayed == false) {
+            try {
+                ele = fluentWaitAndReturn(propString);
+                ele.sendKeys(Keys.CONTROL, "a");
+                ele.sendKeys(Keys.BACK_SPACE);
+                ele.sendKeys(value);
+                ele.sendKeys(Keys.UP);
+                ele.sendKeys(Keys.DOWN);
+                ele.sendKeys(Keys.RETURN);
+                ele.sendKeys(Keys.TAB);
+                returnElementNoWait(displayedNext);
+                WebElement sectionEle = returnElementNoWait(propString);
+                if ((sectionEle.getText().equals(value)) || (sectionEle.getAttribute("value").equals(value))) {
+                    isTheNextSectionDisplayed = true;
+                }
+            } catch (Exception e) {
+                log.info("The next box isn't appearing............");
+            }
+        }
     }
 
     private WebElement waitAndReturnElement(By selector) {
@@ -218,6 +277,57 @@ public abstract class BasePage {
         }
         webElement = driver.findElement(selector);
         return webElement;
+    }
+
+
+                /*--------------------------------------------------------------------------
+-------------------------------Table FUNCTIONS------------------------------
+--------------------------------------------------------------------------*/
+
+
+//THE FOLLOWING TABLE METHODS NEED TO BE REVIEWED
+
+
+    public BasePage getTableColumn(String tableName, int tableColumn) {
+        List<WebElement> Fulltable = waitAndReturnElement(tableName).findElement(By.tagName("table")).findElements(By.tagName("tr"));
+
+        for (int i = 0; i < Fulltable.size(); i++) {
+            List<WebElement> columnData = Fulltable.get(i).findElements(By.tagName("td"));
+            String columnText = columnData.get(tableColumn).getText();
+            log.info("-----------table value " + i + " : " + columnText);
+        }
+        return this;
+    }
+
+    public List<Double> getNumericalTableColumn(String tableName, int tableColumn) {
+        List<WebElement> Fulltable = waitAndReturnElement(tableName).findElement(By.tagName("table")).findElements(By.tagName("tr"));
+        List<Double> columnDoubleList = new ArrayList<>();
+        for (int i = 0; i < Fulltable.size(); i++) {
+            List<WebElement> columnData = Fulltable.get(i).findElements(By.tagName("td"));
+            String columnText = columnData.get(tableColumn).getText();
+            String newColumnText = columnText
+                    .replace("£", "")
+                    .replace(",", "")
+                    .replace("(", "-")
+                    .replace(")", "");
+            double newColumnDouble = Double.parseDouble(newColumnText);
+            log.info("------------------table value " + i + ": " + newColumnDouble);
+            columnDoubleList.add(newColumnDouble);
+        }
+        return columnDoubleList;
+    }
+
+    DecimalFormat df = new DecimalFormat("#.00");
+
+    public BasePage columnSum(String tableName, int tableColumn) {
+        List<Double> fullColumn = getNumericalTableColumn(tableName, tableColumn);
+        double sum = 0;
+        for (Double value : fullColumn) {
+            sum = sum + value;
+        }
+        String formattedSum = df.format(sum);
+        log.info("--------------------------the sum of the table :" + formattedSum);
+        return this;
     }
 
 	/*------------------------------------------------------------------------
@@ -259,7 +369,7 @@ public abstract class BasePage {
                 boolean isPending = (boolean) pending;
 
                 if (isPending) {
-                   log.debug("pending ajax request:" + pending);
+                    log.debug("pending ajax request:" + pending);
                     Thread.sleep(100);
                 } else {
                     log.debug("not pending");
@@ -318,6 +428,12 @@ public abstract class BasePage {
         return waitAndReturnElement(element).isSelected();
     }
 
+    public WebElement returnElementNoWait(String propString) {
+        waitForPendingAjax();
+        By selector = ByProp(propString);
+        return driver.findElement(selector);
+    }
+
 	/*--------------------------------------------------------------
 -------------------------- DROPDOWN Functions ----------------------
 ------------------------------------------------------------------*/
@@ -332,6 +448,88 @@ public abstract class BasePage {
         } catch (NoSuchElementException e) {
             ExtentTestManager.getTest().log(Status.FAIL, element + "did not contain as an option:" + Value);
             Assert.fail("item to select not found by text:" + Value, e);
+
+        }
+
+    }
+
+    public void SelectDropDownByVisibleText(String element, String Value) {
+        WebElement ele = waitAndReturnElement(element);
+        Select dropDown = new Select(ele);
+
+        try {
+            dropDown.selectByVisibleText(Value);
+            colourWebElement(ele, "Orchid");
+        } catch (NoSuchElementException e) {
+            ExtentTestManager.getTest().log(Status.FAIL, element + "did not contain as an option:" + Value);
+            Assert.fail("item to select not found by text:" + Value, e);
+        }
+    }
+
+    public void SelectDropDownByValueFluent(String element, String Value) {
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        WebElement ele = fluentWaitAndReturn(element);
+        Select dropDown = new Select(ele);
+        log.info(dropDown.getFirstSelectedOption().getText());
+        try {
+            dropDown.selectByValue(Value);
+            colourWebElement(ele, "Orchid");
+        } catch (NoSuchElementException e) {
+            ExtentTestManager.getTest().log(Status.FAIL, element + "did not contain as an option:" + Value);
+            Assert.fail("item to select not found by text:" + Value, e);
+
+        }
+    }
+
+    public void fluentWaitForAndSelectByValue(String element, String elementDisplayedNext, String value) {
+        boolean isTheNextSectionDisplayed = false;
+        WebElement ele;
+        while (isTheNextSectionDisplayed == false) {
+            try {
+                ele = fluentWaitAndReturn(element);
+                ele.sendKeys(Keys.UP);
+                ele.sendKeys(Keys.DOWN);
+                ele.sendKeys(Keys.RETURN);
+                SelectDropDownByValueFluent(element, value);
+                ele = fluentWaitAndReturn(element);
+                ele.sendKeys(Keys.TAB);
+                returnElementNoWait(elementDisplayedNext);
+                WebElement sectionEle = returnElementNoWait(element);
+                if (sectionEle.getText().equals(value) || sectionEle.getAttribute("value").equals(value)) {
+                    isTheNextSectionDisplayed = true;
+                    SelectDropDownByValueFluent(element, value);
+                }
+            } catch (Exception e) {
+                log.info("The next box isn't appearing............" + value);
+            }
+        }
+    }
+
+    public void fluentWaitForAndSelectByVisibleText(String element, String elementDisplayedNext, String value) {
+        boolean isTheNextSectionDisplayed = false;
+        WebElement ele;
+        while (isTheNextSectionDisplayed == false) {
+            try {
+                ele = fluentWaitAndReturn(element);
+                ele.sendKeys(Keys.UP);
+                ele.sendKeys(Keys.DOWN);
+                ele.sendKeys(Keys.RETURN);
+                SelectDropDownByValueFluent(element, value);
+                ele = fluentWaitAndReturn(element);
+                ele.sendKeys(Keys.TAB);
+                returnElementNoWait(elementDisplayedNext);
+                WebElement sectionEle = returnElementNoWait(element);
+                if (sectionEle.getText().equals(value) || sectionEle.getAttribute("value").equals(value)) {
+                    isTheNextSectionDisplayed = true;
+                    SelectDropDownByVisibleText(element, value);
+                }
+            } catch (Exception e) {
+                log.info("The next box isn't appearing............" + value);
+            }
         }
     }
 
@@ -371,7 +569,7 @@ public abstract class BasePage {
         }
     }
 
-    	/*--------------------------------------------------------------
+    /*--------------------------------------------------------------
 -------------------------- DROPDOWN Functions ----------------------
 ------------------------------------------------------------------*/
     private void addInfoToReport(String Element, String input) {
@@ -395,7 +593,7 @@ public abstract class BasePage {
             enterTextBox(propName, listValue, Keys.TAB);
             addInfoToReport(propName, listValue);
         } catch (Exception e) {
-            log.error("Issue attempting to enter text into textbox "+e.getMessage());
+            log.error("Issue attempting to enter text into textbox " + e.getMessage());
         }
 
     }
@@ -404,14 +602,14 @@ public abstract class BasePage {
         try {
             waitAndReturnElement(propName).clear();
             waitAndReturnElement(propName).sendKeys(listValue.trim());
-           // StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
+            // StackTraceElement[] stackTraceElements = Thread.currentThread().getStackTrace();
             //String CallerName
-            log.info("Host: " + getPlatformName() +" Enter textbox - Field:" + propName + " Value: " + listValue);
+            log.info("Host: " + getPlatformName() + " Enter textbox - Field:" + propName + " Value: " + listValue);
             waitAndReturnElement(propName).sendKeys(keyAtEnd);
             WebElement element = waitAndReturnElement(propName);
             colourWebElement(element, "purple");
         } catch (InvalidElementStateException invalidElementStateException) {
-            log.error("Issue attempting to input text into textbox"+invalidElementStateException.toString());
+            log.error("Issue attempting to input text into textbox" + invalidElementStateException.toString());
         }
 
     }
@@ -426,6 +624,7 @@ public abstract class BasePage {
             // jsClick(found);
         }
     }
+
     public void frameworkClick(String propString) {
         WebElement found = waitAndReturnElement(propString);
         frameworkClick(found, propString);
@@ -464,7 +663,7 @@ public abstract class BasePage {
                 }
             }
         } catch (Exception e) {
-           log.error(e.toString());
+            log.error(e.toString());
         }
     }
 
@@ -503,19 +702,19 @@ public abstract class BasePage {
         // error404Check();
     }
 
-	public boolean isObjectDisplayed(By selector) {
-		// waitForAjaxCall();
-		try {
-			WebElement element = driver.findElement(selector);
-			if (element != null && element.isDisplayed()) {
-				return true;
-			} else {
-				return false;
-			}
-		} catch (Exception e) {
-			return false;
-		}
-	}
+    public boolean isObjectDisplayed(By selector) {
+        // waitForAjaxCall();
+        try {
+            WebElement element = driver.findElement(selector);
+            if (element != null && element.isDisplayed()) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+    }
 
     public boolean isObjectFound(String objIdentifier) {
         boolean flag = false;
@@ -562,7 +761,7 @@ public abstract class BasePage {
 
     }
 
-    public void WaitLoading(int waitLimit) throws InterruptedException {
+    public void waitLoading(int waitLimit) throws InterruptedException {
         boolean bCount;
         Thread.sleep(1000);
         for (int i = 0; i < 30; i++) {
