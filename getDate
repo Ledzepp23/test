@@ -1,3 +1,17 @@
-SimpleDateFormat format = new SimpleDateFormat("ddMMyyyy");
-		String dateString = format.format(new Date());
+	
+	    public static Date addDays(Date date, int days)
+	    {
+	        Calendar cal = Calendar.getInstance();
+	        cal.setTime(date);
+	        cal.add(Calendar.DATE, days); //minus number would decrement the days
+	        return cal.getTime();
+	    }
+	
+	
+	public static void main(String[] args) {
+		Date today = new Date();
+		Date future = addDays(today, 3);
+		SimpleDateFormat format = new SimpleDateFormat("ddMMyyyy");
+		String dateString = format.format(future);
 		System.out.println(dateString);
+	}
