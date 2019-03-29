@@ -1,0 +1,15 @@
+String text    =
+		        "This 99 the text which is to be searched " +
+		        "for occurrences of the word 'is'.";
+
+		String regex = "\\d+";
+
+		Pattern pattern = Pattern.compile(regex);
+		Matcher matcher = pattern.matcher(text);
+
+		int count = 0;
+		while(matcher.find()) {
+		    count++;
+		    System.out.println("found: " + count + " : "
+		            + matcher.start() + " - " + matcher.end());
+		}
